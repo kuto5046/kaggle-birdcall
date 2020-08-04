@@ -9,6 +9,7 @@ import time
 import numpy as np
 import torch
 import yaml
+import requests
 
 from contextlib import contextmanager
 from typing import Union, Optional
@@ -27,7 +28,6 @@ def send_slack_error_notification(message):
     data = json.dumps({"text":":no_entry_sign:" + message})
     headers = {'content-type': 'application/json'}
     requests.post(webhook_url, data=data, headers=headers)
-
 
 
 class MyEncoder(json.JSONEncoder):

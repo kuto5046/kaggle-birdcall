@@ -7,14 +7,15 @@ globals:
   minimize_metric: False
   input_key: image
   input_target_key: targets
-  weights:
+  weights: "../input/birdcall-resnet50-init-weights/best.pth"
   folds:
     - 0  # cvの際、0のみ行う(つまり1-fold cv)
 
 data:
   train_skip: ../input/birdsong-recognition/skipped.txt
   train_df_path: ../input/birdsong-recognition/train.csv
-  train_audio_path: ../input/birdsong-recognition/train_audio_resampled
+  # train_audio_path: ../input/birdsong-recognition/train_audio_resampled
+  train_audio_path: ../input/birdsong-recognition/train_audio
   train_resample_audio_path: 
     - ../input/birdsong-resampled-train-audio-00
     - ../input/birdsong-resampled-train-audio-01
@@ -23,6 +24,7 @@ data:
     - ../input/birdsong-resampled-train-audio-04
   test_df_path: ../input/birdsong-recognition/test.csv
   test_audio_path: ../input/birdsong-recognition/test_audio
+  sub: ../input/birdsong-recognition/sample_submission.csv
 
 dataset:
   name: SpectrogramDataset
@@ -83,3 +85,16 @@ callbacks:
       output_key: logits
       model_output_key: multilabel_proba
       prefix: mAP
+
+transforms:
+  horizontal_flip: 
+    p: 0.5
+  cutout: 
+    p: 0.0
+  mixup: 
+    P: 0.0
+  spec_augment:
+    p: 0.3
+    num_mask: 2
+    freq_masking_max_percentage: 0.15
+    time_masking_max_percentage: 0.3

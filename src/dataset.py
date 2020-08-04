@@ -70,18 +70,31 @@ PERIOD = 5
 
 
 class SpectrogramDataset(data.Dataset):
+    """
+    音声を読み込む
+    波形データへの前処理
+    5秒間のデータになるようにデータを取り出すもしくは合体する  
+    メルスペクトログラムに変換
+    デシベル単位に変換
+    画像に対する前処理(水増し)
+    3チャネル化
+    risize
+    正規化
+    """
     def __init__(self,
                  df: pd.DataFrame,
                  # datadir: Path,
                  img_size=224,
                  waveform_transforms=None,
                  spectrogram_transforms=None,
+                 spec_augment_transforms=None,
                  melspectrogram_parameters={}):
         self.df = df
         # self.datadir = datadir
         self.img_size = img_size
         self.waveform_transforms = waveform_transforms
         self.spectrogram_transforms = spectrogram_transforms
+        self.spec_augment_transforms = spec_augment_transforms
         self.melspectrogram_parameters = melspectrogram_parameters
 
     def __len__(self):
@@ -98,31 +111,35 @@ class SpectrogramDataset(data.Dataset):
             y = self.waveform_transforms(y)
         else:
             len_y = len(y)
-            effective_length = sr * PERIOD
+            effective_length = sr * PERIOD  # PERIOD秒の標本数
+            # 音声が短い場合は音声を合体させて規程の長さに変換する
             if len_y < effective_length:
                 new_y = np.zeros(effective_length, dtype=y.dtype)
                 start = np.random.randint(effective_length - len_y)
                 new_y[start:start + len_y] = y
                 y = new_y.astype(np.float32)
+            # 音声が長い場合は規程の長さ分をランダムなスタート地点から抜き出し変換する
             elif len_y > effective_length:
                 start = np.random.randint(len_y - effective_length)
                 y = y[start:start + effective_length].astype(np.float32)
             else:
                 y = y.astype(np.float32)
 
+        # メルスペクトログラムに変換してdb(デシベル)単位に変換
         melspec = librosa.feature.melspectrogram(y, sr=sr, **self.melspectrogram_parameters)
         melspec = librosa.power_to_db(melspec).astype(np.float32)
 
         if self.spectrogram_transforms:
-            melspec = self.spectrogram_transforms(melspec)
+            melspec = self.spectrogram_transforms(image=melspec)["image"]  # albumentations
+            melspec = self.spec_augment_transforms.apply(melspec)  # spec augment
         else:
             pass
 
         image = mono_to_color(melspec)
         height, width, _ = image.shape
-        image = cv2.resize(image, (int(width * self.img_size / height), self.img_size))
+        image = cv2.resize(image, (int(width * self.img_size / height), self.img_size))  # 高さを設定ファイルの値に合わせてアスペクト比が変わらないように幅を指定
         image = np.moveaxis(image, 2, 0)
-        image = (image / 255.0).astype(np.float32)
+        image = (image / 255.0).astype(np.float32)  # 画像ごとに正規化(0~1)
 
         labels = np.zeros(len(BIRD_CODE), dtype=int)
         labels[BIRD_CODE[ebird_code]] = 1
@@ -133,6 +150,7 @@ class SpectrogramDataset(data.Dataset):
         }
 
 
+# 既存アーケテクチャを利用するために３次元画像に変換
 def mono_to_color(X: np.ndarray,
                   mean=None,
                   std=None,
@@ -161,3 +179,66 @@ def mono_to_color(X: np.ndarray,
         # Just zero
         V = np.zeros_like(Xstd, dtype=np.uint8)
     return V
+
+
+class TestDataset(data.Dataset):
+    def __init__(self, df: pd.DataFrame, clip: np.ndarray,
+                 img_size=224, melspectrogram_parameters={}):
+        self.df = df
+        self.clip = clip
+        self.img_size = img_size
+        self.melspectrogram_parameters = melspectrogram_parameters
+        
+    def __len__(self):
+        return len(self.df)
+    
+    def __getitem__(self, idx: int):
+        SR = 32000
+        sample = self.df.loc[idx, :]
+        site = sample.site
+        row_id = sample.row_id
+        
+        if site == "site_3":
+            y = self.clip.astype(np.float32)
+            len_y = len(y)
+            start = 0
+            end = SR * 5
+            images = []
+            while len_y > start:
+                y_batch = y[start:end].astype(np.float32)
+                if len(y_batch) != (SR * 5):
+                    break
+                start = end
+                end = end + SR * 5
+                
+                melspec = librosa.feature.melspectrogram(y_batch,
+                                                         sr=SR,
+                                                         **self.melspectrogram_parameters)
+                melspec = librosa.power_to_db(melspec).astype(np.float32)
+                image = mono_to_color(melspec)
+                height, width, _ = image.shape
+                image = cv2.resize(image, (int(width * self.img_size / height), self.img_size))
+                image = np.moveaxis(image, 2, 0)
+                image = (image / 255.0).astype(np.float32)
+                images.append(image)
+            images = np.asarray(images)
+            return images, row_id, site
+        else:
+            end_seconds = int(sample.seconds)
+            start_seconds = int(end_seconds - 5)
+            
+            start_index = SR * start_seconds
+            end_index = SR * end_seconds
+            
+            y = self.clip[start_index:end_index].astype(np.float32)
+
+            melspec = librosa.feature.melspectrogram(y, sr=SR, **self.melspectrogram_parameters)
+            melspec = librosa.power_to_db(melspec).astype(np.float32)
+
+            image = mono_to_color(melspec)
+            height, width, _ = image.shape
+            image = cv2.resize(image, (int(width * self.img_size / height), self.img_size))
+            image = np.moveaxis(image, 2, 0)
+            image = (image / 255.0).astype(np.float32)
+
+            return image, row_id, site

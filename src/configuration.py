@@ -11,7 +11,8 @@ from pathlib import Path
 
 from criterion import ResNetLoss  # noqa
 from transforms import (get_waveform_transforms,
-                        get_spectrogram_transforms)
+                        get_spectrogram_transforms, 
+                        get_spec_augment_transforms)
 
 
 def get_device(device: str):
@@ -88,9 +89,8 @@ def get_resampled_metadata(config: dict):
 
     #5つのresample datasetから音声データファイルをiterationし,ebird_name,file名, file_pathをdfに変換
     # 音声データを読み込んでいるというよりかはメタデータを読み込んでいる
-    for i, audio_d in enumerate(data_config["train_resample_audio_path"]):
+    for audio_d in data_config["train_resample_audio_path"]:
         audio_d = Path(audio_d)
-        tmp_train = pd.read_csv(audio_d / "train_mod.csv")
 
         if not audio_d.exists():
             continue
@@ -99,12 +99,6 @@ def get_resampled_metadata(config: dict):
                 continue
             for wav_f in ebird_d.iterdir():
                 tmp_list.append([ebird_d.name, wav_f.name, wav_f.as_posix()])
-        
-        # 各データセットのtrain_mod.csvファイルを結合
-        if i == 0:
-            train = tmp_train.copy()
-        else:
-            train = pd.concat([train, tmp_train])
 
     train_wav_path_exist = pd.DataFrame(
         tmp_list, columns=["ebird_code", "resampled_filename", "file_path"])
@@ -112,6 +106,7 @@ def get_resampled_metadata(config: dict):
     del tmp_list  # 不要なのでメモリ節約のため削除
 
     # dfのデータにmerge
+    train = pd.read_csv(Path(data_config["train_resample_audio_path"][0]) / "train_mod.csv")
     train_all = pd.merge(
         train, train_wav_path_exist, on=["ebird_code", "resampled_filename"], how="inner")
 
@@ -124,10 +119,11 @@ def get_loader(df: pd.DataFrame,
                config: dict,
                phase: str):
     dataset_config = config["dataset"]
-    
+
     if dataset_config["name"] == "SpectrogramDataset":
         waveform_transforms = get_waveform_transforms(config)
         spectrogram_transforms = get_spectrogram_transforms(config)
+        spec_augment_transforms = get_spec_augment_transforms(config)
         melspectrogram_parameters = dataset_config["params"]
         loader_config = config["loader"][phase]
 
@@ -137,6 +133,7 @@ def get_loader(df: pd.DataFrame,
             img_size=dataset_config["img_size"],
             waveform_transforms=waveform_transforms,
             spectrogram_transforms=spectrogram_transforms,
+            spec_augment_transforms=spec_augment_transforms,
             melspectrogram_parameters=melspectrogram_parameters)
     else:
         raise NotImplementedError

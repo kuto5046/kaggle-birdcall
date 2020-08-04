@@ -3,8 +3,8 @@ import warnings
 # src
 import callbacks as clb
 import configuration as C
-import models as models
-import utils as utils
+import models
+import utils
 
 from pathlib import Path
 
