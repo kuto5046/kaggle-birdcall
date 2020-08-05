@@ -49,7 +49,7 @@ def run():
         }
 
         # configファイルの情報をもとにそれぞれのフレームを作成
-        model = models.get_model(config).to(device)
+        model = models.get_model_for_train(config).to(device)
         criterion = C.get_criterion(config).to(device)
         optimizer = C.get_optimizer(model, config)
         scheduler = C.get_scheduler(optimizer, config)

@@ -9,7 +9,7 @@ import dataset  # src
 
 from pathlib import Path
 
-from criterion import ResNetLoss  # noqa
+from criterion import Loss  # noqa
 from transforms import (get_waveform_transforms,
                         get_spectrogram_transforms, 
                         get_spec_augment_transforms)
@@ -54,6 +54,10 @@ def get_criterion(config: dict):
             raise NotImplementedError
 
     return criterion
+
+
+# def get_criterion(config: dict):
+#     return getattr(nn, config["loss"]["name"])(**config["loss"]["params"])
 
 
 # TODO 返り値の挙動
