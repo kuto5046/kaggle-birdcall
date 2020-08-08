@@ -9,10 +9,11 @@ import utils
 from pathlib import Path
 
 from catalyst.dl import SupervisedRunner
-
+from apex import amp, optimizers
 
 def run():
     warnings.filterwarnings("ignore")
+    FP16_PARAMS = dict(opt_level="O1") 
 
     args = utils.get_parser().parse_args()  # コマンドライン引数で参照するyamlファイルを指定
     config = utils.load_config(args.config)
@@ -55,6 +56,8 @@ def run():
         scheduler = C.get_scheduler(optimizer, config)
         callbacks = clb.get_callbacks(config)
 
+        # model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
+
         # catalystのクラスに渡す
         runner = SupervisedRunner(
             device=device,
@@ -72,7 +75,8 @@ def run():
             logdir=output_dir / f"fold{i}",
             callbacks=callbacks,
             main_metric=global_params["main_metric"],
-            minimize_metric=global_params["minimize_metric"])
+            minimize_metric=global_params["minimize_metric"],
+            fp16=FP16_PARAMS)
 
 
 if __name__ == "__main__":

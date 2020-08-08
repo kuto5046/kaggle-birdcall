@@ -9,7 +9,7 @@ import dataset  # src
 
 from pathlib import Path
 
-from criterion import Loss  # noqa
+from criterion import Loss, Cutmix_Loss, Mixup_Loss # noqa
 from transforms import (get_waveform_transforms,
                         get_spectrogram_transforms, 
                         get_spec_augment_transforms)
@@ -41,8 +41,7 @@ def get_scheduler(optimizer, config: dict):
 def get_criterion(config: dict):
     loss_config = config["loss"]
     loss_name = loss_config["name"]
-    loss_params = {} if loss_config.get("params") is None else loss_config.get(
-        "params")
+    loss_params = {} if loss_config.get("params") is None else loss_config.get("params")
 
     if hasattr(nn, loss_name):
         criterion = nn.__getattribute__(loss_name)(**loss_params)
@@ -145,5 +144,3 @@ def get_loader(df: pd.DataFrame,
     loader = data.DataLoader(datasets, **loader_config)
     return loader
 
-
- 

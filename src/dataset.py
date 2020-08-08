@@ -6,7 +6,7 @@ import soundfile as sf
 import torch.utils.data as data
 
 from pathlib import Path
-
+import noisereduce as nr
 
 BIRD_CODE = {
     'aldfly': 0, 'ameavo': 1, 'amebit': 2, 'amecro': 3, 'amegfi': 4,
@@ -100,30 +100,36 @@ class SpectrogramDataset(data.Dataset):
     def __len__(self):
         return len(self.df)
 
+    
+    # １つのデータから複数のデータを作りたい  ここをいじるのではなく元データを分割すればいい？
     def __getitem__(self, idx: int):
         sample = self.df.loc[idx, :]
         wav_path = sample["file_path"]
         ebird_code = sample["ebird_code"]
 
         y, sr = sf.read(wav_path)
+        len_y = len(y)
+        effective_length = sr * PERIOD  # PERIOD秒の標本数
 
+        # 波形への前処理
         if self.waveform_transforms:
             y = self.waveform_transforms(y)
+
+        # 音声が短い場合は音声を合体させて規程の長さに変換する
+        if len_y < effective_length:
+            new_y = np.zeros(effective_length, dtype=y.dtype)
+            start = np.random.randint(effective_length - len_y)
+            new_y[start:start + len_y] = y
+            y = new_y.astype(np.float32)
+        # 音声が長い場合は規程の長さ分をランダムなスタート地点から抜き出し変換する
+        elif len_y > effective_length:
+            start = np.random.randint(len_y - effective_length)
+            y = y[start:start + effective_length].astype(np.float32)
         else:
-            len_y = len(y)
-            effective_length = sr * PERIOD  # PERIOD秒の標本数
-            # 音声が短い場合は音声を合体させて規程の長さに変換する
-            if len_y < effective_length:
-                new_y = np.zeros(effective_length, dtype=y.dtype)
-                start = np.random.randint(effective_length - len_y)
-                new_y[start:start + len_y] = y
-                y = new_y.astype(np.float32)
-            # 音声が長い場合は規程の長さ分をランダムなスタート地点から抜き出し変換する
-            elif len_y > effective_length:
-                start = np.random.randint(len_y - effective_length)
-                y = y[start:start + effective_length].astype(np.float32)
-            else:
-                y = y.astype(np.float32)
+            y = y.astype(np.float32)
+        
+        # ノイズ除去
+        y = denoise(y)
 
         # メルスペクトログラムに変換してdb(デシベル)単位に変換
         melspec = librosa.feature.melspectrogram(y, sr=sr, **self.melspectrogram_parameters)
@@ -181,4 +187,21 @@ def mono_to_color(X: np.ndarray,
     return V
 
 
-   return image, row_id, site
+def envelope(y, rate=32000, threshold=0.25):
+    mask = []
+    y = pd.Series(y).apply(np.abs)
+    y_mean = y.rolling(window=int(rate/20),min_periods=1,center=True).max()
+    for mean in y_mean:
+        if mean > threshold:
+            mask.append(True)
+        else:
+            mask.append(False)
+    return mask, y_mean
+
+
+# ノイズ除去
+def denoise(y: np.ndarray):
+    # ノイズを消す
+    mask, _ = envelope(y)
+    y_denoise = nr.reduce_noise(audio_clip=y, noise_clip=y[np.logical_not(mask)], verbose=False)
+    return y_denoise

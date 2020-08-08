@@ -16,20 +16,6 @@ from typing import Union, Optional
 from pathlib import Path
 
 
-def send_slack_notification(message):
-    webhook_url = 'https://hooks.slack.com/services/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'
-    data = json.dumps({'text': message})
-    headers = {'content-type': 'application/json'}
-    requests.post(webhook_url, data=data, headers=headers)
-
-
-def send_slack_error_notification(message):
-    webhook_url = 'https://hooks.slack.com/services/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'
-    data = json.dumps({"text":":no_entry_sign:" + message})
-    headers = {'content-type': 'application/json'}
-    requests.post(webhook_url, data=data, headers=headers)
-
-
 class MyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):

@@ -71,6 +71,33 @@ class ResNeSt(nn.Module):
         }
 
 
+class ResNeSt(nn.Module):
+    def __init__(self, base_model_name: str, pretrained=False,
+                 num_classes=264):
+        super().__init__()
+        self.base_model =getattr(resnest_torch, base_model_name)(pretrained=pretrained)
+        # layers = list(base_model.children())[:-2]
+        # layers.append(nn.AdaptiveMaxPool2d(1))
+        # self.encoder = nn.Sequential(*layers)
+        # in_features = base_model.fc.in_features
+        del self.base_model.fc
+
+        self.base_model.fc = nn.Sequential(
+            nn.Linear(2048, 1024), nn.ReLU(), nn.Dropout(p=0.2),
+            nn.Linear(1024, 1024), nn.ReLU(), nn.Dropout(p=0.2),
+            nn.Linear(1024, num_classes))
+
+    def forward(self, x):
+        x = self.base_model(x)
+        multiclass_proba = F.softmax(x, dim=1)
+        multilabel_proba = F.sigmoid(x)
+        return {
+            "logits": x,
+            "multiclass_proba": multiclass_proba,
+            "multilabel_proba": multilabel_proba
+        }
+
+
 def get_model_for_train(config: dict):
     model_config = config["model"]
     model_name = model_config["name"]
