@@ -9,7 +9,7 @@ import dataset  # src
 
 from pathlib import Path
 
-from criterion import Loss, Cutmix_Loss, Mixup_Loss # noqa
+from criterion import Loss, Cutmix_Loss, Mixup_Loss, PANNsLoss # noqa
 from transforms import (get_waveform_transforms,
                         get_spectrogram_transforms, 
                         get_spec_augment_transforms)
@@ -138,6 +138,10 @@ def get_loader(df: pd.DataFrame,
             spectrogram_transforms=spectrogram_transforms,
             spec_augment_transforms=spec_augment_transforms,
             melspectrogram_parameters=melspectrogram_parameters)
+    elif dataset_config["name"] == "PANNsCNNDataset":
+        datasets = dataset.PANNsCNNDataset(df, None)
+        loader_config = config["loader"][phase]
+
     else:
         raise NotImplementedError
 

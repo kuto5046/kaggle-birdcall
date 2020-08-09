@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 import torch.utils.data as data
-
+from typing import Optional, List
 from pathlib import Path
 import noisereduce as nr
 
@@ -205,3 +205,41 @@ def denoise(y: np.ndarray):
     mask, _ = envelope(y)
     y_denoise = nr.reduce_noise(audio_clip=y, noise_clip=y[np.logical_not(mask)], verbose=False)
     return y_denoise
+
+
+class PANNsDataset(data.Dataset):
+    def __init__(
+            self,
+            file_list: List[List[str]],
+            waveform_transforms=None):
+        self.file_list = file_list  # list of list: [file_path, ebird_code]
+        self.waveform_transforms = waveform_transforms
+
+    def __len__(self):
+        return len(self.file_list)
+
+    def __getitem__(self, idx: int):
+        wav_path, ebird_code = self.file_list[idx]
+
+        y, sr = sf.read(wav_path)
+
+        if self.waveform_transforms:
+            y = self.waveform_transforms(y)
+        else:
+            len_y = len(y)
+            effective_length = sr * PERIOD
+            if len_y < effective_length:
+                new_y = np.zeros(effective_length, dtype=y.dtype)
+                start = np.random.randint(effective_length - len_y)
+                new_y[start:start + len_y] = y
+                y = new_y.astype(np.float32)
+            elif len_y > effective_length:
+                start = np.random.randint(len_y - effective_length)
+                y = y[start:start + effective_length].astype(np.float32)
+            else:
+                y = y.astype(np.float32)
+
+        labels = np.zeros(len(BIRD_CODE), dtype="f")
+        labels[BIRD_CODE[ebird_code]] = 1
+
+        return {"waveform": y, "targets": labels}

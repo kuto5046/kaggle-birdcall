@@ -3,8 +3,8 @@ from typing import List
 
 from catalyst.core import Callback, CallbackOrder, State
 from sklearn.metrics import f1_score, average_precision_score
-# from catalyst.dl.callbacks.mixup import MixupCallback
-
+from catalyst.dl.callbacks.mixup import MixupCallback
+from catalyst.dl import CheckpointCallback
 
 class F1Callback(Callback):
     def __init__(self,

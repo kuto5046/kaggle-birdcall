@@ -51,6 +51,8 @@ def run():
 
         # configファイルの情報をもとにそれぞれのフレームを作成
         model = models.get_model_for_train(config).to(device)
+        model.att_block = AttBlock(2048, 264, activation='sigmoid')
+        model.att_block.init_weights()
         criterion = C.get_criterion(config).to(device)
         optimizer = C.get_optimizer(model, config)
         scheduler = C.get_scheduler(optimizer, config)
@@ -83,3 +85,4 @@ if __name__ == "__main__":
     run()
 
 
+　

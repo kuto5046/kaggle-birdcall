@@ -26,55 +26,75 @@ class Loss(nn.Module):
         return self.loss(input_, target)
 
 
-# class Cutmix_Loss(nn.Module):
-#     def __init__(self, loss_type="ce"):
-#         super().__init__()
+class Cutmix_Loss(nn.Module):
+    def __init__(self, loss_type="ce"):
+        super().__init__()
 
-#         self.loss_type = loss_type
-#         if loss_type == "ce":
-#             self.loss = nn.CrossEntropyLoss()
-#         elif loss_type == "bce":
-#             self.loss = nn.BCELoss()
-#         elif loss_type == "bcewl":
-#             self.loss = nn.BCEWithLogitsLoss()
+        self.loss_type = loss_type
+        if loss_type == "ce":
+            self.loss = nn.CrossEntropyLoss()
+        elif loss_type == "bce":
+            self.loss = nn.BCELoss()
+        elif loss_type == "bcewl":
+            self.loss = nn.BCEWithLogitsLoss()
 
-#     def forward(self, input, targets):
-#         target1 = targets[0]["multiclass_proba"]
-#         target2 = targets[1]["multiclass_proba"]
-#         lam = targets[2]["multiclass_proba"]
+    def forward(self, input, targets):
+        target1 = targets[0]["multiclass_proba"]
+        target2 = targets[1]["multiclass_proba"]
+        lam = targets[2]["multiclass_proba"]
 
-#         if self.loss_type == "ce":
-#             target1 = target1.argmax(1).long()
-#             target2 = target2.argmax(1).long()
-#         else:
-#             target1 = target1.float()
-#             target2 = target2.float()
+        if self.loss_type == "ce":
+            target1 = target1.argmax(1).long()
+            target2 = target2.argmax(1).long()
+        else:
+            target1 = target1.float()
+            target2 = target2.float()
 
-#         return lam * self.loss(input, target1) + lam * self.loss(input, target2)
+        return lam * self.loss(input, target1) + lam * self.loss(input, target2)
 
 
-# class Mixup_Loss(nn.Module):
-#     def __init__(self, loss_type="ce"):
-#         super().__init__()
+class Mixup_Loss(nn.Module):
+    def __init__(self, loss_type="ce"):
+        super().__init__()
 
-#         self.loss_type = loss_type
-#         if loss_type == "ce":
-#             self.loss = nn.CrossEntropyLoss()
-#         elif loss_type == "bce":
-#             self.loss = nn.BCELoss()
-#         elif loss_type == "bcewl":
-#             self.loss = nn.BCEWithLogitsLoss()
+        self.loss_type = loss_type
+        if loss_type == "ce":
+            self.loss = nn.CrossEntropyLoss()
+        elif loss_type == "bce":
+            self.loss = nn.BCELoss()
+        elif loss_type == "bcewl":
+            self.loss = nn.BCEWithLogitsLoss()
 
-#     def forward(self, input, targets):
-#         target1 = targets[0]["multiclass_proba"]
-#         target2 = targets[1]["multiclass_proba"]
-#         lam = targets[2]["multiclass_proba"]
+    def forward(self, input, targets):
+        target1 = targets[0]["multiclass_proba"]
+        target2 = targets[1]["multiclass_proba"]
+        lam = targets[2]["multiclass_proba"]
 
-#         if self.loss_type == "ce":
-#             target1 = target1.argmax(1).long()
-#             target2 = target2.argmax(1).long()
-#         else:
-#             target1 = target1.float()
-#             target2 = target2.float()
+        if self.loss_type == "ce":
+            target1 = target1.argmax(1).long()
+            target2 = target2.argmax(1).long()
+        else:
+            target1 = target1.float()
+            target2 = target2.float()
 
-#         return lam * self.loss(input, target1) + (1-lam) * self.loss(input, target2)
+        return lam * self.loss(input, target1) + (1-lam) * self.loss(input, target2)
+
+
+class PANNsLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.bce = nn.BCELoss()
+
+    def forward(self, input, target):
+        input_ = input["clipwise_output"]
+        input_ = torch.where(torch.isnan(input_),
+                             torch.zeros_like(input_),
+                             input_)
+        input_ = torch.where(torch.isinf(input_),
+                             torch.zeros_like(input_),
+                             input_)
+
+        target = target.float()
+
+        return self.bce(input_, target)
