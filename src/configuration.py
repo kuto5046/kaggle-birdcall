@@ -138,8 +138,8 @@ def get_loader(df: pd.DataFrame,
             spectrogram_transforms=spectrogram_transforms,
             spec_augment_transforms=spec_augment_transforms,
             melspectrogram_parameters=melspectrogram_parameters)
-    elif dataset_config["name"] == "PANNsCNNDataset":
-        datasets = dataset.PANNsCNNDataset(df, None)
+    elif dataset_config["name"] == "PANNsDataset":
+        datasets = dataset.PANNsDataset(df, None)
         loader_config = config["loader"][phase]
 
     else:

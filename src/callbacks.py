@@ -165,6 +165,8 @@ def get_callbacks(config: dict):
 
         if callback_cls is not None:
             callbacks.append(callback_cls(**params))
+    
+    callbacks.append(CheckpointCallback(save_n_best=0))
     return callbacks
 
 

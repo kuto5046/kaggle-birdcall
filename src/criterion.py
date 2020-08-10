@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class Loss(nn.Module):
@@ -81,12 +82,19 @@ class Mixup_Loss(nn.Module):
 
 
 class PANNsLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, loss_type="ce"):
         super().__init__()
+          
+        if loss_type == "ce":
+            self.loss = nn.CrossEntropyLoss()
+        elif loss_type == "bce":
+            self.loss = nn.BCELoss()
+        elif loss_type == "bcewl":
+            self.loss = nn.BCEWithLogitsLoss()
 
-        self.bce = nn.BCELoss()
 
     def forward(self, input, target):
+
         input_ = input["clipwise_output"]
         input_ = torch.where(torch.isnan(input_),
                              torch.zeros_like(input_),
@@ -97,4 +105,4 @@ class PANNsLoss(nn.Module):
 
         target = target.float()
 
-        return self.bce(input_, target)
+        return self.loss(input_, target)

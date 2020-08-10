@@ -210,16 +210,18 @@ def denoise(y: np.ndarray):
 class PANNsDataset(data.Dataset):
     def __init__(
             self,
-            file_list: List[List[str]],
+            df: pd.DataFrame,
             waveform_transforms=None):
-        self.file_list = file_list  # list of list: [file_path, ebird_code]
+        self.df = df  # list of list: [file_path, ebird_code]
         self.waveform_transforms = waveform_transforms
 
     def __len__(self):
-        return len(self.file_list)
+        return len(self.df)
 
     def __getitem__(self, idx: int):
-        wav_path, ebird_code = self.file_list[idx]
+        sample = self.df.loc[idx, :]
+        wav_path = sample["file_path"]
+        ebird_code = sample["ebird_code"]
 
         y, sr = sf.read(wav_path)
 
