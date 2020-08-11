@@ -599,8 +599,11 @@ class PANNsCNN14Att(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         return x
     
+    
+    # モデル内で画像に変換するためここで画像への前処理を追加する
     def preprocess(self, input, mixup_lambda=None):
         # t1 = time.time()
+        input = denoise(input)
         x = self.spectrogram_extractor(input)  # (batch_size, 1, time_steps, freq_bins)
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
 
@@ -619,7 +622,7 @@ class PANNsCNN14Att(nn.Module):
         return x, frames_num
         
 
-    def forward(self, input, mixup_lambda=None):
+    def forward(self, input, mixup_lambda=1.0):
         """
         Input: (batch_size, data_length)"""
         x, frames_num = self.preprocess(input, mixup_lambda=mixup_lambda)
@@ -654,3 +657,17 @@ class PANNsCNN14Att(nn.Module):
         }
 
         return output_dict
+
+# TODO targetを考慮していないのでノイズを追加したような感じになっている
+def do_mixup(data, lambda):
+    indices = torch.randperm(data.size(0))
+    shuffled_data = data[indices]
+    # shuffled_targets = targets[indices]
+
+    lam = np.random.beta(lambda, lambda)
+    data = data * lam + shuffled_data * (1 - lam)
+    # targets = [targets, shuffled_targets, lam]
+
+    return data
+
+
