@@ -127,9 +127,7 @@ class SpectrogramDataset(data.Dataset):
             y = y[start:start + effective_length].astype(np.float32)
         else:
             y = y.astype(np.float32)
-        
-        # ノイズ除去
-        y = denoise(y)
+
 
         # メルスペクトログラムに変換してdb(デシベル)単位に変換
         melspec = librosa.feature.melspectrogram(y, sr=sr, **self.melspectrogram_parameters)
@@ -207,13 +205,36 @@ def denoise(y: np.ndarray):
     return y_denoise
 
 
+# from https://stackoverflow.com/questions/33933842/how-to-generate-noise-in-frequency-range-with-numpy
+def fftnoise(f):
+    f = np.array(f, dtype="complex")
+    Np = (len(f) - 1) // 2
+    phases = np.random.rand(Np) * 2 * np.pi
+    phases = np.cos(phases) + 1j * np.sin(phases)
+    f[1 : Np + 1] *= phases
+    f[-1 : -1 - Np : -1] = np.conj(f[1 : Np + 1])
+    return np.fft.ifft(f).real
+
+
+def addnoise(y, min_freq=4000, max_freq=12000, samples=160000, samplerate=32000):
+    freqs = np.abs(np.fft.fftfreq(samples, 1 / samplerate))
+    f = np.zeros(samples)
+    f[np.logical_and(freqs >= min_freq, freqs <= max_freq)] = 1
+    noise = fftnoise(f) * 50
+    y_noise = y + noise
+    return y_noise
+
+
 class PANNsDataset(data.Dataset):
     def __init__(
             self,
             df: pd.DataFrame,
-            waveform_transforms=None):
+            waveform_transforms=None,
+            dataset_config={}
+            ):
         self.df = df  # list of list: [file_path, ebird_code]
         self.waveform_transforms = waveform_transforms
+        self.dataset_config = dataset_config
 
     def __len__(self):
         return len(self.df)
@@ -224,6 +245,7 @@ class PANNsDataset(data.Dataset):
         ebird_code = sample["ebird_code"]
 
         y, sr = sf.read(wav_path)
+        
 
         if self.waveform_transforms:
             y = self.waveform_transforms(y)
@@ -241,6 +263,17 @@ class PANNsDataset(data.Dataset):
             else:
                 y = y.astype(np.float32)
 
+
+        # ノイズ除去or追加
+        p = np.random.rand()
+        denoise_p = self.dataset_config['denoise_p']
+        addnoise_p = self.dataset_config['addnoise_p']
+        if p < denoise_p:
+            y = denoise(y).astype(np.float32)
+        
+        elif denoise_p <= p < denoise_p + addnoise_p:
+            y = addnoise(y).astype(np.float32)
+        
         labels = np.zeros(len(BIRD_CODE), dtype="f")
         labels[BIRD_CODE[ebird_code]] = 1
 

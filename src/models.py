@@ -1,44 +1,46 @@
 import os
 os.system('pip install ../input/resnest50-fast-package/resnest-0.0.6b20200701/resnest/')
-os.system('pip install efficientnet_pytorch')
+# os.system('pip install efficientnet_pytorch')
 import librosa
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
+import pandas as pd
 from torchvision import models
 import resnest.torch as resnest_torch
-from efficientnet_pytorch import EfficientNet
+# from efficientnet_pytorch import EfficientNet
+os.system('pip install noisereduce')
+import noisereduce as nr
 
+# class ResNet(nn.Module):
+#     def __init__(self, base_model_name: str, pretrained=False,
+#                  num_classes=264):
+#         super().__init__()
+#         base_model = models.__getattribute__(base_model_name)(pretrained=pretrained)
+#         layers = list(base_model.children())[:-2]
+#         layers.append(nn.AdaptiveMaxPool2d(1))
+#         self.encoder = nn.Sequential(*layers)
 
-
-class ResNet(nn.Module):
-    def __init__(self, base_model_name: str, pretrained=False,
-                 num_classes=264):
-        super().__init__()
-        base_model = models.__getattribute__(base_model_name)(pretrained=pretrained)
-        layers = list(base_model.children())[:-2]
-        layers.append(nn.AdaptiveMaxPool2d(1))
-        self.encoder = nn.Sequential(*layers)
-
-        in_features = base_model.fc.in_features
+#         in_features = base_model.fc.in_features
         
-        self.classifier = nn.Sequential(
-            nn.Linear(in_features, 1024), nn.ReLU(), nn.Dropout(p=0.2),
-            nn.Linear(1024, 1024), nn.ReLU(), nn.Dropout(p=0.2),
-            nn.Linear(1024, num_classes))
+#         self.classifier = nn.Sequential(
+#             nn.Linear(in_features, 1024), nn.ReLU(), nn.Dropout(p=0.2),
+#             nn.Linear(1024, 1024), nn.ReLU(), nn.Dropout(p=0.2),
+#             nn.Linear(1024, num_classes))
 
-    def forward(self, x):
-        batch_size = x.size(0)
-        x = self.encoder(x)
-        x = x.view(batch_size, -1)
-        x = self.classifier(x)
-        multiclass_proba = F.softmax(x, dim=1)
-        multilabel_proba = F.sigmoid(x)
-        return {
-            "logits": x,
-            "multiclass_proba": multiclass_proba,
-            "multilabel_proba": multilabel_proba
-        }
+#     def forward(self, x):
+#         batch_size = x.size(0)
+#         x = self.encoder(x)
+#         x = x.view(batch_size, -1)
+#         x = self.classifier(x)
+#         multiclass_proba = F.softmax(x, dim=1)
+#         multilabel_proba = F.sigmoid(x)
+#         return {
+#             "logits": x,
+#             "multiclass_proba": multiclass_proba,
+#             "multilabel_proba": multilabel_proba
+#         }
 
 
 class ResNeSt(nn.Module):
@@ -72,6 +74,7 @@ def get_model_for_train(config: dict):
     model_config = config["model"]
     model_name = model_config["name"]
     model_params = model_config["params"]
+    weight_path = model_config['weights']
 
     if "resnet" in model_name:
         model = ResNet(  # type: ignore
@@ -81,13 +84,32 @@ def get_model_for_train(config: dict):
         return model
 
     elif "resnest" in model_name:
+#         model = getattr(resnest_torch, model_name)(pretrained=model_params["pretrained"])
+#         del model.fc
+#         # # use the same head as the baseline notebook.
+#         model.fc = nn.Sequential(
+#             nn.Linear(2048, 1024), nn.ReLU(), nn.Dropout(p=0.2),
+#             nn.Linear(1024, 1024), nn.ReLU(), nn.Dropout(p=0.2),
+#             nn.Linear(1024, model_params["n_classes"]))
         model = ResNeSt(  # type: ignore
             base_model_name=model_name,
             pretrained=model_params["pretrained"],
             num_classes=model_params["n_classes"])
+    
+        return model
 
     elif "pannscnn" in model_name:
+
+        # model
+        model_params["classes_num"] = 527
         model = PANNsCNN14Att(**model_params)
+        weights = torch.load(weight_path)
+        
+        # Fixed in V3
+        model.load_state_dict(weights["model"])
+        model.att_block = AttBlock(2048, 264, activation='sigmoid')
+        model.att_block.init_weights()
+
         return model
 
     else:
@@ -351,7 +373,6 @@ def pad_framewise_output(framewise_output: torch.Tensor, frames_num: int):
     return output
 
 
-
 class DropStripes(nn.Module):
     def __init__(self, dim, drop_width, stripes_num):
         """Drop stripes. 
@@ -599,11 +620,8 @@ class PANNsCNN14Att(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         return x
     
-    
-    # モデル内で画像に変換するためここで画像への前処理を追加する
-    def preprocess(self, input, mixup_lambda=None):
+    def preprocess(self, input, mixup_lambda=1.0):
         # t1 = time.time()
-        input = denoise(input)
         x = self.spectrogram_extractor(input)  # (batch_size, 1, time_steps, freq_bins)
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
 
@@ -622,7 +640,7 @@ class PANNsCNN14Att(nn.Module):
         return x, frames_num
         
 
-    def forward(self, input, mixup_lambda=1.0):
+    def forward(self, input, mixup_lambda=None):
         """
         Input: (batch_size, data_length)"""
         x, frames_num = self.preprocess(input, mixup_lambda=mixup_lambda)
@@ -658,16 +676,15 @@ class PANNsCNN14Att(nn.Module):
 
         return output_dict
 
-# TODO targetを考慮していないのでノイズを追加したような感じになっている
-def do_mixup(data, lambda):
+
+
+def do_mixup(data, mixup_lambda):
     indices = torch.randperm(data.size(0))
     shuffled_data = data[indices]
     # shuffled_targets = targets[indices]
 
-    lam = np.random.beta(lambda, lambda)
+    lam = np.random.beta(mixup_lambda, mixup_lambda)
     data = data * lam + shuffled_data * (1 - lam)
     # targets = [targets, shuffled_targets, lam]
 
     return data
-
-

@@ -56,7 +56,6 @@ class get_spec_augment_transforms(object):
         return image
 
 
-
 # def rand_bbox(size, lam):
 #     W = size[2]
 #     H = size[3]
@@ -80,7 +79,7 @@ class get_spec_augment_transforms(object):
 #     indices = torch.randperm(data.size(0))
 #     shuffled_data = data[indices]
 #     shuffled_targets = targets[indices]
-#  
+#  
 #     lam = np.random.beta(alpha, alpha)
 #     bbx1, bby1, bbx2, bby2 = rand_bbox(data.size(), lam)
 #     data[:, :, bbx1:bbx2, bby1:bby2] = data[indices, :, bbx1:bbx2, bby1:bby2]

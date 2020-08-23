@@ -9,7 +9,8 @@ import dataset  # src
 
 from pathlib import Path
 
-from criterion import Loss, Cutmix_Loss, Mixup_Loss, PANNsLoss # noqa
+# from criterion import Loss, Cutmix_Loss, Mixup_Loss, 
+from criterion import Loss, PANNsLoss # noqa
 from transforms import (get_waveform_transforms,
                         get_spectrogram_transforms, 
                         get_spec_augment_transforms)
@@ -103,17 +104,28 @@ def get_resampled_metadata(config: dict):
             for wav_f in ebird_d.iterdir():
                 tmp_list.append([ebird_d.name, wav_f.name, wav_f.as_posix()])
 
-    train_wav_path_exist = pd.DataFrame(
-        tmp_list, columns=["ebird_code", "resampled_filename", "file_path"])
+    train_wav_path_exist = pd.DataFrame(tmp_list, columns=["ebird_code", "resampled_filename", "file_path"])
 
     del tmp_list  # 不要なのでメモリ節約のため削除
 
     # dfのデータにmerge
-    train = pd.read_csv(Path(data_config["train_resample_audio_path"][0]) / "train_mod.csv")
+    train1 = pd.read_csv(Path(data_config["train_resample_audio_path"][0]) / "train_mod.csv")
+    train2 = pd.read_csv(Path(data_config["train_resample_audio_path"][-1]) / "train_extended.csv")
+    train = pd.concat([train1, train2]).reset_index(drop=True)
     train_all = pd.merge(
         train, train_wav_path_exist, on=["ebird_code", "resampled_filename"], how="inner")
-
-    return  train_all
+    
+    
+    df = pd.DataFrame()
+    for bird_name in train_all['ebird_code'].unique():
+        try:
+            temp_df = train_all[train_all['ebird_code'] == bird_name].sample(data_config['num_unique'])
+        except:
+            num_unique = len(train_all[train_all['ebird_code'] == bird_name])
+            temp_df = train_all[train_all['ebird_code'] == bird_name].sample(num_unique)
+        df = pd.concat([df, temp_df])
+    
+    return df.reset_index(drop=True)
 
 
 # trainとvalid別々で与えられる
@@ -122,29 +134,33 @@ def get_loader(df: pd.DataFrame,
                config: dict,
                phase: str):
     dataset_config = config["dataset"]
-
+    dataset_params = dataset_config['params']
     if dataset_config["name"] == "SpectrogramDataset":
         waveform_transforms = get_waveform_transforms(config)
         spectrogram_transforms = get_spectrogram_transforms(config)
         spec_augment_transforms = get_spec_augment_transforms(config)
-        melspectrogram_parameters = dataset_config["params"]
-        loader_config = config["loader"][phase]
+        melspectrogram_parameters = dataset_params["melspectrogram_parameters"]
 
         datasets = dataset.SpectrogramDataset(
             df,
             # datadir=datadir,
-            img_size=dataset_config["img_size"],
+            img_size=dataset_params["img_size"],
             waveform_transforms=waveform_transforms,
             spectrogram_transforms=spectrogram_transforms,
             spec_augment_transforms=spec_augment_transforms,
             melspectrogram_parameters=melspectrogram_parameters)
+
     elif dataset_config["name"] == "PANNsDataset":
-        datasets = dataset.PANNsDataset(df, None)
-        loader_config = config["loader"][phase]
+        waveform_transforms = get_waveform_transforms(config)
+        dataset_config = dataset_config["params"]
+        datasets = dataset.PANNsDataset(
+            df, 
+            waveform_transforms=waveform_transforms,
+            dataset_config=dataset_config)
 
     else:
         raise NotImplementedError
 
+    loader_config = config["loader"][phase]
     loader = data.DataLoader(datasets, **loader_config)
     return loader
-
