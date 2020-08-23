@@ -11,7 +11,7 @@ zip \
 unzip
 
 
-WORKDIR /opt
+WORKDIR /opt
 
 # download anaconda package and install anaconda
 RUN wget https://repo.continuum.io/archive/Anaconda3-2019.10-Linux-x86_64.sh && \
@@ -33,4 +33,3 @@ RUN pip install --upgrade pip && \
 
 WORKDIR /work
 # CMD ["jupyter", "lab", "--ip=0.0.0.0", "--allow-root", "--LabApp.token=''"]
-

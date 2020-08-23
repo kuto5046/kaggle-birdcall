@@ -1,5 +1,6 @@
-input
-notebook
-src
-.vscode
-README.md
+/input/
+/notebook/
+/src/
+/.vscode/
+/configs/
+*.md
