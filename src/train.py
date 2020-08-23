@@ -5,18 +5,24 @@ import callbacks as clb
 import configuration as C
 import models
 import utils
+import yaml
 
 from pathlib import Path
 
 from catalyst.dl import SupervisedRunner
-from apex import amp, optimizers
+# from apex import amp, optimizers
+import callbacks
+import models
+
 
 def run():
     warnings.filterwarnings("ignore")
-    FP16_PARAMS = dict(opt_level="O1") 
+    FP16_PARAMS = None  # dict(opt_level="O1") 
 
-    args = utils.get_parser().parse_args()  # コマンドライン引数で参照するyamlファイルを指定
-    config = utils.load_config(args.config)
+    with open('../configs/000_PANNsCNN14.yml', 'r') as yml:
+        config = yaml.load(yml)
+    # args = utils.get_parser().parse_args()  # コマンドライン引数で参照するyamlファイルを指定
+    # config = utils.load_config(args.config)
 
     global_params = config["globals"]
 
@@ -51,7 +57,7 @@ def run():
 
         # configファイルの情報をもとにそれぞれのフレームを作成
         model = models.get_model_for_train(config).to(device)
-        model.att_block = AttBlock(2048, 264, activation='sigmoid')
+        model.att_block = models.AttBlock(2048, 264, activation='sigmoid')
         model.att_block.init_weights()
         criterion = C.get_criterion(config).to(device)
         optimizer = C.get_optimizer(model, config)
@@ -82,7 +88,6 @@ def run():
 
 
 if __name__ == "__main__":
+    callbacks.send_slack_notification("Start train")
     run()
-
-
-　
+    callbacks.send_slack_notification("Finish train")

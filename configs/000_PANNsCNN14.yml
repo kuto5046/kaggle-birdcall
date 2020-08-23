@@ -2,10 +2,10 @@ globals:
   seed: 5046
   device: cuda
   num_epochs: 50
-  output_dir: output/
+  output_dir: output/001_panns
   main_metric: epoch_f1
   minimize_metric: False
-  input_key: image
+  input_key: waveform
   input_target_key: targets
   weights: "../input/birdcall-resnet50-init-weights/best.pth"
   folds:
@@ -27,22 +27,20 @@ data:
   sub: ../input/birdsong-recognition/sample_submission.csv
 
 dataset:
-  name: SpectrogramDataset
-  img_size: 224
-  params:
-    n_mels: 128
-    fmin: 20
-    fmax: 16000
+  name: PANNsDataset
+  params: 
+    addnoise_p: 0.3
+    denoise_p: 0.1
 
 loss:
-  name: Loss
+  name: PANNsLoss
   params:
     loss_type: bce
 
 optimizer:
   name: Adam
   params:
-    lr: 0.001
+    lr: 0.005
 
 scheduler:
   name: CosineAnnealingLR
@@ -57,20 +55,29 @@ split:
     shuffle: True
 
 model:
-  name: resnest50_fast_1s1x64d
+  name: pannscnn
   params:
-    pretrained: True
-    n_classes: 264
+    sample_rate: 32000
+    window_size: 1024
+    hop_size: 320
+    mel_bins: 64
+    fmin: 50
+    fmax: 14000
+    classes_num: 512
 
 loader:
   train:
     batch_size: 50
     shuffle: True
     num_workers: 2
+    pin_memory: True
+    drop_last: True
   valid:
     batch_size: 100
     shuffle: False
     num_workers: 2
+    pin_memory: True
+    drop_last: False
 
 callbacks:
   - name: F1Callback
@@ -85,13 +92,10 @@ callbacks:
       output_key: logits
       model_output_key: multilabel_proba
       prefix: mAP
-  - name: MixupCallback
+  - name: CheckpointCallback
     params:
-      input_key: targets
-      output_key: logits
-      model_output_key: multilabel_proba
-      prefix: mixup
-    
+      save_n_best: 0
+
 transforms:
   horizontal_flip: 
     p: 0.5
