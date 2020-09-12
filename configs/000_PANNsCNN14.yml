@@ -1,13 +1,12 @@
 globals:
   seed: 5046
   device: cuda
-  num_epochs: 50
-  output_dir: output/001_panns
+  num_epochs: 30
+  output_dir: output/
   main_metric: epoch_f1
   minimize_metric: False
   input_key: waveform
   input_target_key: targets
-  weights: "../input/birdcall-resnet50-init-weights/best.pth"
   folds:
     - 0  # cvの際、0のみ行う(つまり1-fold cv)
 
@@ -15,13 +14,20 @@ data:
   train_skip: ../input/birdsong-recognition/skipped.txt
   train_df_path: ../input/birdsong-recognition/train.csv
   train_audio_path: ../input/birdsong-recognition/train_audio_resampled
-  # train_audio_path: ../input/birdsong-recognition/train_audio
+  nocall: ../input/nocall-samples
+  num_unique: 100
+
   train_resample_audio_path: 
     - ../input/birdsong-resampled-train-audio-00
     - ../input/birdsong-resampled-train-audio-01
     - ../input/birdsong-resampled-train-audio-02
     - ../input/birdsong-resampled-train-audio-03
     - ../input/birdsong-resampled-train-audio-04
+    - ../input/extendedbirdsongresampledtrainaudio00/extended-birdsong-resampled-train-audio-00
+    - ../input/extendedbirdsongresampledtrainaudio01/extended-birdsong-resampled-train-audio-01
+    - ../input/extendedbirdsongresampledtrainaudio02/extended-birdsong-resampled-train-audio-02
+    - ../input/extendedbirdsongresampledtrainaudio03/extended-birdsong-resampled-train-audio-03
+    - ../input/extendedbirdsongresampledtrainaudio04/extended-birdsong-resampled-train-audio-04
   test_df_path: ../input/birdcall-check/test.csv
   test_audio_path: ../input/birdcall-check/test_audio
   sub: ../input/birdsong-recognition/sample_submission.csv
@@ -29,18 +35,18 @@ data:
 dataset:
   name: PANNsDataset
   params: 
+    denoise_p: 0.0
     addnoise_p: 0.3
-    denoise_p: 0.1
 
 loss:
   name: PANNsLoss
-  params:
+  params: 
     loss_type: bce
 
 optimizer:
   name: Adam
   params:
-    lr: 0.005
+    lr: 0.001
 
 scheduler:
   name: CosineAnnealingLR
@@ -63,17 +69,18 @@ model:
     mel_bins: 64
     fmin: 50
     fmax: 14000
-    classes_num: 512
+    classes_num: 264
+  weights: ../input/pannscnn14-decisionlevelatt-weight/Cnn14_DecisionLevelAtt_mAP0.425.pth
 
 loader:
   train:
-    batch_size: 50
+    batch_size: 64
     shuffle: True
     num_workers: 2
     pin_memory: True
     drop_last: True
   valid:
-    batch_size: 100
+    batch_size: 64
     shuffle: False
     num_workers: 2
     pin_memory: True
@@ -84,27 +91,12 @@ callbacks:
     params:
       input_key: targets
       output_key: logits
-      model_output_key: multilabel_proba
+      model_output_key: clipwise_output
       prefix: f1
+      average: macro
   - name: mAPCallback
     params:
       input_key: targets
       output_key: logits
-      model_output_key: multilabel_proba
+      model_output_key: clipwise_output
       prefix: mAP
-  - name: CheckpointCallback
-    params:
-      save_n_best: 0
-
-transforms:
-  horizontal_flip: 
-    p: 0.5
-  cutout: 
-    p: 0.0
-  mixup: 
-    P: 0.0
-  spec_augment:
-    p: 0.3
-    num_mask: 2
-    freq_masking_max_percentage: 0.15
-    time_masking_max_percentage: 0.3

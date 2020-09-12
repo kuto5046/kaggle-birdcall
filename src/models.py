@@ -101,14 +101,14 @@ def get_model_for_train(config: dict):
     elif "pannscnn" in model_name:
 
         # model
-        model_params["classes_num"] = 527
+#         classes_num = model_params['classes_num']
+#         model_params["classes_num"] = 527
         model = PANNsCNN14Att(**model_params)
-        weights = torch.load(weight_path)
-        
-        # Fixed in V3
-        model.load_state_dict(weights["model"])
-        model.att_block = AttBlock(2048, 264, activation='sigmoid')
-        model.att_block.init_weights()
+        weights = torch.load(weight_path, map_location=torch.device('cpu'))
+#         model.load_state_dict(weights["model"])
+        model.load_state_dict(weights['model_state_dict'])
+#         model.att_block = AttBlock(2048, classes_num, activation='sigmoid')
+#         model.att_block.init_weights()
 
         return model
 
@@ -116,31 +116,26 @@ def get_model_for_train(config: dict):
         raise NotImplementedError
 
 
-def get_model_for_eval(config: dict, weights_path: str):
-    model_name = config["name"]
-    model_params = config["params"]
-    weights_path = weights_path
+# def get_model_for_eval(config: dict, weights_path: str):
+#     model_name = config["name"]
+#     model_params = config["params"]
+#     weights_path = weights_path
 
-    if "resnet" in model_name:
-        model = ResNet(
-            base_model_name=model_name,
-            pretrained=model_params["pretrained"],
-            num_classes=model_params["n_classes"])
+#     if "resnet" in model_name:
+#         model = ResNet(
+#             base_model_name=model_name,
+#             pretrained=model_params["pretrained"],
+#             num_classes=model_params["n_classes"])
 
-        checkpoint = torch.load(weights_path)
-        model.load_state_dict(checkpoint["model_state_dict"])
-        device = torch.device("cuda")
-        model.to(device)
-        model.eval()
-        return model
-    else:
-        raise NotImplementedError
+#         checkpoint = torch.load(weights_path)
+#         model.load_state_dict(checkpoint["model_state_dict"])
+#         device = torch.device("cuda")
+#         model.to(device)
+#         model.eval()
+#         return model
+#     else:
+#         raise NotImplementedError
 
-
-"""
-Introduction to Sound Event Detection
-for Sound Event Detection (SED) task
-"""
 class DFTBase(nn.Module):
     def __init__(self):
         """Base class for DFT and IDFT matrix"""
@@ -323,55 +318,7 @@ class LogmelFilterBank(nn.Module):
             log_spec = torch.clamp(log_spec, min=log_spec.max().item() - self.top_db, max=np.inf)
 
         return log_spec
-
-
-def init_layer(layer):
-    nn.init.xavier_uniform_(layer.weight)
-
-    if hasattr(layer, "bias"):
-        if layer.bias is not None:
-            layer.bias.data.fill_(0.)
-
-
-def init_bn(bn):
-    bn.bias.data.fill_(0.)
-    bn.weight.data.fill_(1.0)
-
-
-def interpolate(x: torch.Tensor, ratio: int):
-    """Interpolate data in time domain. This is used to compensate the
-    resolution reduction in downsampling of a CNN.
-
-    Args:
-      x: (batch_size, time_steps, classes_num)
-      ratio: int, ratio to interpolate
-    Returns:
-      upsampled: (batch_size, time_steps * ratio, classes_num)
-    """
-    (batch_size, time_steps, classes_num) = x.shape
-    upsampled = x[:, :, None, :].repeat(1, 1, ratio, 1)
-    upsampled = upsampled.reshape(batch_size, time_steps * ratio, classes_num)
-    return upsampled
-
-
-def pad_framewise_output(framewise_output: torch.Tensor, frames_num: int):
-    """Pad framewise_output to the same length as input frames. The pad value
-    is the same as the value of the last frame.
-    Args:
-      framewise_output: (batch_size, frames_num, classes_num)
-      frames_num: int, number of frames to pad
-    Outputs:
-      output: (batch_size, frames_num, classes_num)
-    """
-    pad = framewise_output[:, -1:, :].repeat(
-        1, frames_num - framewise_output.shape[1], 1)
-    """tensor for padding"""
-
-    output = torch.cat((framewise_output, pad), dim=1)
-    """(batch_size, frames_num, classes_num)"""
-
-    return output
-
+    
 
 class DropStripes(nn.Module):
     def __init__(self, dim, drop_width, stripes_num):
@@ -446,6 +393,54 @@ class SpecAugmentation(nn.Module):
         x = self.time_dropper(input)
         x = self.freq_dropper(x)
         return x
+    
+
+def init_layer(layer):
+    nn.init.xavier_uniform_(layer.weight)
+
+    if hasattr(layer, "bias"):
+        if layer.bias is not None:
+            layer.bias.data.fill_(0.)
+
+
+def init_bn(bn):
+    bn.bias.data.fill_(0.)
+    bn.weight.data.fill_(1.0)
+
+
+def interpolate(x: torch.Tensor, ratio: int):
+    """Interpolate data in time domain. This is used to compensate the
+    resolution reduction in downsampling of a CNN.
+
+    Args:
+      x: (batch_size, time_steps, classes_num)
+      ratio: int, ratio to interpolate
+    Returns:
+      upsampled: (batch_size, time_steps * ratio, classes_num)
+    """
+    (batch_size, time_steps, classes_num) = x.shape
+    upsampled = x[:, :, None, :].repeat(1, 1, ratio, 1)
+    upsampled = upsampled.reshape(batch_size, time_steps * ratio, classes_num)
+    return upsampled
+
+
+def pad_framewise_output(framewise_output: torch.Tensor, frames_num: int):
+    """Pad framewise_output to the same length as input frames. The pad value
+    is the same as the value of the last frame.
+    Args:
+      framewise_output: (batch_size, frames_num, classes_num)
+      frames_num: int, number of frames to pad
+    Outputs:
+      output: (batch_size, frames_num, classes_num)
+    """
+    pad = framewise_output[:, -1:, :].repeat(
+        1, frames_num - framewise_output.shape[1], 1)
+    """tensor for padding"""
+
+    output = torch.cat((framewise_output, pad), dim=1)
+    """(batch_size, frames_num, classes_num)"""
+
+    return output
 
 
 class ConvBlock(nn.Module):
@@ -620,7 +615,7 @@ class PANNsCNN14Att(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         return x
     
-    def preprocess(self, input, mixup_lambda=1.0):
+    def preprocess(self, input):
         # t1 = time.time()
         x = self.spectrogram_extractor(input)  # (batch_size, 1, time_steps, freq_bins)
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
@@ -635,15 +630,15 @@ class PANNsCNN14Att(nn.Module):
             x = self.spec_augmenter(x)
 
         # Mixup on spectrogram
-        if self.training and mixup_lambda is not None:
-            x = do_mixup(x, mixup_lambda)
+        if self.training:
+            x = do_mixup(x)
         return x, frames_num
         
 
-    def forward(self, input, mixup_lambda=None):
+    def forward(self, input):
         """
         Input: (batch_size, data_length)"""
-        x, frames_num = self.preprocess(input, mixup_lambda=mixup_lambda)
+        x, frames_num = self.preprocess(input)
 
         # Output shape (batch size, channels, time, frequency)
         x = self.cnn_feature_extractor(x)
@@ -676,15 +671,21 @@ class PANNsCNN14Att(nn.Module):
 
         return output_dict
 
+# TODO targetを考慮していないのでノイズを追加したような感じになっている
+def do_mixup(data, p=0.3):
+    rand = np.random.rand()
+    if rand < p: 
+        indices = torch.randperm(data.size(0))
+        shuffled_data = data[indices]
+         # shuffled_targets = targets[indices]
+        a = 0.7
+        b = 0.9
+        # lam = (b - a) * np.random.rand(data.size(0) + a
+        lam = (b - a) * torch.rand(data.size(0)) + a
 
+        # lam = np.random.beta(lambda, lambda)
+        data = data.to('cpu') * lam + shuffled_data.to('cpu') * (1 - lam)
 
-def do_mixup(data, mixup_lambda):
-    indices = torch.randperm(data.size(0))
-    shuffled_data = data[indices]
-    # shuffled_targets = targets[indices]
+        # targets = [targets, shuffled_targets, lam]
 
-    lam = np.random.beta(mixup_lambda, mixup_lambda)
-    data = data * lam + shuffled_data * (1 - lam)
-    # targets = [targets, shuffled_targets, lam]
-
-    return data
+    return data.to('cuda')

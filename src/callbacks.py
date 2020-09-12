@@ -34,7 +34,7 @@ class F1Callback(Callback):
         y_pred = clipwise_output.argmax(axis=1)
         y_true = targ.argmax(axis=1)
 
-        score = f1_score(y_true, y_pred, average="macro")
+        score = f1_score(y_true, y_pred, average="samples")  # samples?
         state.batch_metrics[self.prefix] = score
 
     def on_loader_end(self, state: State):

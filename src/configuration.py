@@ -135,6 +135,7 @@ def get_loader(df: pd.DataFrame,
                phase: str):
     dataset_config = config["dataset"]
     dataset_params = dataset_config['params']
+
     if dataset_config["name"] == "SpectrogramDataset":
         waveform_transforms = get_waveform_transforms(config)
         spectrogram_transforms = get_spectrogram_transforms(config)
@@ -143,6 +144,7 @@ def get_loader(df: pd.DataFrame,
 
         datasets = dataset.SpectrogramDataset(
             df,
+            phase,
             # datadir=datadir,
             img_size=dataset_params["img_size"],
             waveform_transforms=waveform_transforms,
