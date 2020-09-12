@@ -23,11 +23,11 @@ data:
     - ../input/birdsong-resampled-train-audio-02
     - ../input/birdsong-resampled-train-audio-03
     - ../input/birdsong-resampled-train-audio-04
-    - ../input/extendedbirdsongresampledtrainaudio00/extended-birdsong-resampled-train-audio-00
-    - ../input/extendedbirdsongresampledtrainaudio01/extended-birdsong-resampled-train-audio-01
-    - ../input/extendedbirdsongresampledtrainaudio02/extended-birdsong-resampled-train-audio-02
-    - ../input/extendedbirdsongresampledtrainaudio03/extended-birdsong-resampled-train-audio-03
-    - ../input/extendedbirdsongresampledtrainaudio04/extended-birdsong-resampled-train-audio-04
+    - ../input/extended-birdsong-resampled-train-audio-00
+    - ../input/extended-birdsong-resampled-train-audio-01
+    - ../input/extended-birdsong-resampled-train-audio-02
+    - ../input/extended-birdsong-resampled-train-audio-03
+    - ../input/extended-birdsong-resampled-train-audio-04
   test_df_path: ../input/birdcall-check/test.csv
   test_audio_path: ../input/birdcall-check/test_audio
   sub: ../input/birdsong-recognition/sample_submission.csv
