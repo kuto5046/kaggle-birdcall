@@ -1,0 +1,7 @@
+/input/
+/notebook/
+/output/
+.vscode
+.DS_Store
+MEMO.md
+/src/__pycache__/
