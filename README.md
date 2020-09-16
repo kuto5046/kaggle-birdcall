@@ -1,29 +1,29 @@
 # kaggle: Cornell Birdcall Identification 
 
 ![](./img/bird_img.jpg "bird image")
-image source: https://jp.freeimages.com/photo/bird-1361326
+image source is [here](https://jp.freeimages.com/photo/bird-1361326)
 
+Competition Link → https://www.kaggle.com/c/birdsong-recognition
 ## Leader Board Ranking
 - public LB: 623th  
 - private LB: 105th (blonze 🥉)
 
 ## competitonの概要
 音声データをもとに、どの鳥の鳴き声かを推測するコンペ  
-クラス数:264
+クラス数:264  
 特徴としてはdomain shiftとnoise labelsが課題となるコンペだった。[本notebookより](https://www.kaggle.com/c/birdsong-recognition/discussion/183204)
 
 
 ## solution
 ### final model
 [PANNS](https://www.kaggle.com/hidehisaarai1213/introduction-to-sound-event-detection)によるsingle model
-epoch: 30
-予測時のthreshold: 0.9
+epoch: 30  
+予測時のthreshold: 0.9  
 
 ### extra data
 [本discussion](https://www.kaggle.com/c/birdsong-recognition/discussion/159970)で公開されているextra dataをresamplingしてwavファイルに変換後、
-各クラスの上限が100となるように訓練データを作成
-学習時間はあまり増やしたくなかったので従来のデータ数である100を上限とした
-100に達していないクラスのデータを補強する意味合い
+各クラスの上限が100となるように訓練データを作成。学習時間はあまり増やしたくなかったので従来のデータ数である100を上限とした。
+100に達していないクラスのデータを補強する意味合い。50でも試したがCVがかなり落ちたので100にした。
 
 ### augmentation
 音声波形に対してp=0.3で以下を実施
@@ -51,11 +51,11 @@ wave → log melspectrgram(画像)に変換後p=0.5で以下を実施
 ## その他試したけどうまくいかなかったもの
 - mixup
 - cutout
-- 訓練データのdenoise
+- 訓練データのdenoise  
 時間がかなりかかるのと精度が音声によってバラバラのため断念
-- テスト時のdenoise
+- テスト時のdenoise  
 submission時にtimeout errorとなり不採用
-- nocallを含む265クラスで学習・予測
+- nocallを含む265クラスで学習・予測  
 有効だったとのsolutionもあったが私の手元では効かなかった
 
 ## 実行できなかったアイデア
