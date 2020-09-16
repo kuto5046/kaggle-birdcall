@@ -101,14 +101,14 @@ def get_model_for_train(config: dict):
     elif "pannscnn" in model_name:
 
         # model
-#         classes_num = model_params['classes_num']
-#         model_params["classes_num"] = 527
+        classes_num = model_params['classes_num']
+        model_params["classes_num"] = 527
         model = PANNsCNN14Att(**model_params)
-        weights = torch.load(weight_path, map_location=torch.device('cpu'))
-#         model.load_state_dict(weights["model"])
-        model.load_state_dict(weights['model_state_dict'])
-#         model.att_block = AttBlock(2048, classes_num, activation='sigmoid')
-#         model.att_block.init_weights()
+        weights = torch.load(weight_path, map_location=torch.device("cuda"))
+        model.load_state_dict(weights["model"])
+        # model.load_state_dict(weights['model_state_dict'])
+        model.att_block = AttBlock(2048, classes_num, activation='sigmoid')
+        model.att_block.init_weights()
 
         return model
 
